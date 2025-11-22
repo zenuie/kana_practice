@@ -12,7 +12,7 @@
         body {
             font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
             background-color: #f4f7f6;
-            touch-action: none; /* 禁止全域滑動，避免畫圖干擾 */
+            touch-action: none;
             user-select: none;
             overflow: hidden;
         }
@@ -24,7 +24,7 @@
             text-align: center;
         }
 
-        /* 存圖彈窗樣式 */
+        /* 彈窗樣式 */
         #saveModal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.85); z-index: 10000;
@@ -32,15 +32,16 @@
             flex-direction: column; justify-content: center; align-items: center;
         }
 
-        /* 確保顯示的圖片看起來是正方形且白底 */
+        /* 圖片顯示區：加上白色邊框，因為圖片本身是黑底，怕跟背景融為一體 */
         #saveImageDisplay {
-            background: white;
-            border: 4px solid #fff;
+            background: black;
+            border: 4px solid #fff; /* 白色邊框 */
             border-radius: 16px;
-            width: 250px;   /* 視覺顯示大小 */
+            width: 250px;
             height: 250px;
-            object-fit: contain; /* 確保內容完整顯示 */
-            box-shadow: 0 0 25px rgba(255,255,255,0.3);
+            object-fit: contain;
+            box-shadow: 0 0 30px rgba(255,255,255,0.2);
+            image-rendering: pixelated; /* 讓黑白像素分明 */
         }
 
         .top-bar {
@@ -80,7 +81,7 @@
         .canvas-container {
             position: relative;
             width: 100%;
-            aspect-ratio: 1 / 1; /* 強制 CSS 顯示為正方形 */
+            aspect-ratio: 1 / 1; /* 強制 CSS 正方形 */
             background: #fff;
             cursor: crosshair;
             border-top: 2px dashed #e0e0e0;
@@ -129,7 +130,7 @@
 <div id="saveModal" onclick="this.style.display='none'">
     <h3 class="text-white mb-3">長按圖片加入照片</h3>
     <img id="saveImageDisplay" src="" alt="Sample">
-    <p class="text-white-50 mt-3 small">檔名由 iOS 系統自動產生</p>
+    <p class="text-white-50 mt-3 small">已轉為黑底白字正方形格式</p>
 </div>
 
 <div class="top-bar">
@@ -310,7 +311,7 @@
         checkAnswer: async function () {
             if (!this.session || sketch.isEmpty()) return;
             const canvas = document.getElementById('drawingBoard');
-            // 給 AI 的依舊是「黑底白字」
+            // AI 用的 (64px, 黑底白字)
             const inputTensor = this.processCanvasForONNX(canvas);
             if (!inputTensor) return;
 
@@ -368,8 +369,8 @@
 
         handleSaveAction: function() {
             const canvas = document.getElementById('drawingBoard');
-            // ★ 關鍵修改：使用新的函數產生「白底黑字正方形」圖片
-            const readableImage = createHumanReadableImage(canvas, 300); // 300x300 高畫質
+            // ★ 重點修正：這裡產生的圖片要是「黑底白字」且「正方形」
+            const readableImage = createBlackBgImage(canvas, 300);
 
             if (!readableImage) return;
 
@@ -382,7 +383,6 @@
                 img.src = dataUrl;
                 modal.style.display = 'flex';
             } else {
-                // 電腦版可以自訂檔名
                 const link = document.createElement('a');
                 link.download = `${this.currentQ.r}_${Date.now()}.png`;
                 link.href = dataUrl;
@@ -392,16 +392,16 @@
             }
         },
 
-        // 專門給 AI 用的 Tensor 轉換
         processCanvasForONNX: function (sourceCanvas) {
-            const processedCanvas = processCanvasForAI(sourceCanvas, 64); // 黑底白字
+            // 給 AI 的也是 64px 黑底白字 (復用同樣邏輯)
+            const processedCanvas = createBlackBgImage(sourceCanvas, 64);
             if (!processedCanvas) return null;
             const ctx = processedCanvas.getContext('2d');
             const imgData = ctx.getImageData(0, 0, 64, 64);
             const {data} = imgData;
             const floatData = new Float32Array(3 * 64 * 64);
             for (let i = 0; i < 64 * 64; i++) {
-                const r = data[i * 4] / 255.0;
+                const r = data[i * 4] / 255.0; // 0=黑, 1=白
                 floatData[i] = r;
                 floatData[64 * 64 + i] = r;
                 floatData[2 * 64 * 64 + i] = r;
@@ -410,19 +410,20 @@
         }
     };
 
-    // ★ 新功能：產生給人類看的白底黑字正方形圖片
-    function createHumanReadableImage(sourceCanvas, targetSize = 300) {
+    // ★ 終極核心函式：產生黑底白字的正方形圖片 ★
+    // 此函式同時給 AI (64px) 和 人類存檔 (300px) 使用，確保一致
+    function createBlackBgImage(sourceCanvas, targetSize = 300) {
         const ctx = sourceCanvas.getContext('2d');
         const width = sourceCanvas.width;
         const height = sourceCanvas.height;
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        // 1. 尋找裁切邊界
+        // 1. 裁切：尋找筆跡邊界
         let minX = width, minY = height, maxX = 0, maxY = 0, found = false;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                // 找筆跡(黑色)
+                // 原始畫布是白底(255) 黑筆(<200)
                 if (data[(y * width + x) * 4] < 200) {
                     if (x < minX) minX = x;
                     if (x > maxX) maxX = x;
@@ -436,97 +437,58 @@
 
         const cropW = maxX - minX + 1;
         const cropH = maxY - minY + 1;
-        const padding = 20; // 留白多一點好看
+        const padding = Math.floor(targetSize * 0.1); // 10% 留白
 
-        // 2. 計算縮放比例 (保持長寬比)
+        // 2. 計算縮放比例
         const scale = Math.min((targetSize - padding * 2) / cropW, (targetSize - padding * 2) / cropH);
-        const sw = cropW * scale;
-        const sh = cropH * scale;
-        const dx = (targetSize - sw) / 2;
-        const dy = (targetSize - sh) / 2;
-
-        // 3. 建立新畫布 (正方形)
-        const finalC = document.createElement('canvas');
-        finalC.width = targetSize;
-        finalC.height = targetSize;
-        const fCtx = finalC.getContext('2d');
-
-        // 4. ★填滿白色背景★
-        fCtx.fillStyle = "white";
-        fCtx.fillRect(0, 0, targetSize, targetSize);
-
-        // 5. 畫上裁切後的字 (保持原本的黑色)
-        // 不需要反轉顏色，只要裁切並置中
-        fCtx.drawImage(sourceCanvas, minX, minY, cropW, cropH, dx, dy, sw, sh);
-
-        return finalC;
-    }
-
-    // 給 AI 用的處理函數 (黑底白字)
-    function processCanvasForAI(sourceCanvas, targetSize = 64) {
-        const ctx = sourceCanvas.getContext('2d');
-        const width = sourceCanvas.width;
-        const height = sourceCanvas.height;
-        const imgData = ctx.getImageData(0, 0, width, height);
-        const data = imgData.data;
-
-        let minX = width, minY = height, maxX = 0, maxY = 0, found = false;
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                if (data[(y * width + x) * 4] < 200) {
-                    if (x < minX) minX = x;
-                    if (x > maxX) maxX = x;
-                    if (y < minY) minY = y;
-                    if (y > maxY) maxY = y;
-                    found = true;
-                }
-            }
-        }
-        if (!found) return null;
-
-        const cropW = maxX - minX + 1;
-        const cropH = maxY - minY + 1;
-        const padding = 10;
-        const scale = Math.min((targetSize - padding) / cropW, (targetSize - padding) / cropH);
         const sw = Math.floor(cropW * scale);
         const sh = Math.floor(cropH * scale);
         const dx = Math.floor((targetSize - sw) / 2);
         const dy = Math.floor((targetSize - sh) / 2);
 
+        // 3. 建立最終畫布 (黑底)
         const finalC = document.createElement('canvas');
         finalC.width = targetSize;
         finalC.height = targetSize;
         const fCtx = finalC.getContext('2d');
 
-        // AI 需要黑底
+        // 填滿黑色
         fCtx.fillStyle = "black";
         fCtx.fillRect(0, 0, targetSize, targetSize);
 
+        // 4. 縮放與繪製 (先畫在一張白底的暫存上，方便做像素處理)
         const tempC = document.createElement('canvas');
-        tempC.width = cropW;
-        tempC.height = cropH;
-        tempC.getContext('2d').drawImage(sourceCanvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+        tempC.width = targetSize;
+        tempC.height = targetSize;
+        const tCtx = tempC.getContext('2d');
 
-        const scaledC = document.createElement('canvas');
-        scaledC.width = targetSize;
-        scaledC.height = targetSize;
-        const sCtx = scaledC.getContext('2d');
-        sCtx.fillStyle = "white";
-        sCtx.fillRect(0, 0, targetSize, targetSize);
-        sCtx.drawImage(tempC, 0, 0, cropW, cropH, dx, dy, sw, sh);
+        tCtx.fillStyle = "white"; // 暫存底色為白
+        tCtx.fillRect(0, 0, targetSize, targetSize);
+        // 畫上縮放後的字 (這時候還是黑色筆跡)
+        tCtx.drawImage(sourceCanvas, minX, minY, cropW, cropH, dx, dy, sw, sh);
 
-        // 反轉顏色：AI 必須要白字
-        const sData = sCtx.getImageData(0, 0, targetSize, targetSize);
-        const pixels = sData.data;
+        // 5. ★ 像素顏色反轉 ★
+        // 我們需要把 白底黑字 轉成 黑底白字
+        const tData = tCtx.getImageData(0, 0, targetSize, targetSize);
+        const pixels = tData.data;
+
         for(let i=0; i < pixels.length; i+=4) {
-            const val = pixels[i];
-            const newVal = val > 150 ? 0 : 255;
-            pixels[i] = newVal;
-            pixels[i+1] = newVal;
-            pixels[i+2] = newVal;
-            pixels[i+3] = 255;
+            // 原始：筆跡是黑 (0)，背景是白 (255)
+            // 目標：筆跡是白 (255)，背景是黑 (0)
+            const val = pixels[i]; // 取 R 通道
+
+            // 簡單反轉：如果是亮的(背景)，變全黑(0)；如果是暗的(筆跡)，變全白(255)
+            const newVal = val > 128 ? 0 : 255;
+
+            pixels[i] = newVal;     // R
+            pixels[i+1] = newVal;   // G
+            pixels[i+2] = newVal;   // B
+            pixels[i+3] = 255;      // Alpha
         }
-        fCtx.putImageData(sData, 0, 0);
+
+        // 將反轉後的像素放到最終的黑底畫布上
+        fCtx.putImageData(tData, 0, 0);
+
         return finalC;
     }
 
@@ -535,7 +497,7 @@
             this.c = document.getElementById('drawingBoard');
             this.ctx = this.c.getContext('2d', {willReadFrequently: true});
             const wrapper = this.c.parentElement;
-            // 強制畫布內部像素為正方形
+            // 強制畫布內部解析度為正方形 (避免手機網址列伸縮導致長方形)
             this.c.width = wrapper.clientWidth;
             this.c.height = wrapper.clientWidth;
             this.clear();
@@ -579,6 +541,7 @@
             const r = this.c.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            // 座標轉換 (CSS 尺寸 -> Canvas 像素)
             const scaleX = this.c.width / r.width;
             const scaleY = this.c.height / r.height;
             return {
