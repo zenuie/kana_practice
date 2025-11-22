@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>聽寫特訓</title>
+
+    <!-- ★ Google Analytics (GA4) ★ -->
+    <!-- 請將 G-PPXWYCEVKF 替換為你的 Measurement ID -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PPXWYCEVKF"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-PPXWYCEVKF');
+    </script>
+    <!-- ★ GA 結束 ★ -->
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
@@ -24,7 +36,6 @@
             text-align: center;
         }
 
-        /* 彈窗樣式 */
         #saveModal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.85); z-index: 10000;
@@ -32,16 +43,15 @@
             flex-direction: column; justify-content: center; align-items: center;
         }
 
-        /* 圖片顯示區：加上白色邊框，因為圖片本身是黑底，怕跟背景融為一體 */
         #saveImageDisplay {
             background: black;
-            border: 4px solid #fff; /* 白色邊框 */
+            border: 4px solid #fff;
             border-radius: 16px;
             width: 250px;
             height: 250px;
             object-fit: contain;
             box-shadow: 0 0 30px rgba(255,255,255,0.2);
-            image-rendering: pixelated; /* 讓黑白像素分明 */
+            image-rendering: pixelated;
         }
 
         .top-bar {
@@ -81,7 +91,7 @@
         .canvas-container {
             position: relative;
             width: 100%;
-            aspect-ratio: 1 / 1; /* 強制 CSS 正方形 */
+            aspect-ratio: 1 / 1;
             background: #fff;
             cursor: crosshair;
             border-top: 2px dashed #e0e0e0;
@@ -126,7 +136,6 @@
     </div>
 </div>
 
-<!-- 圖片儲存彈窗 -->
 <div id="saveModal" onclick="this.style.display='none'">
     <h3 class="text-white mb-3">長按圖片加入照片</h3>
     <img id="saveImageDisplay" src="" alt="Sample">
@@ -226,6 +235,12 @@
                 window.speechSynthesis.speak(u);
             }
             this.isAudioUnlocked = true;
+
+            // GA Event: Start
+            if (typeof gtag === 'function') {
+                gtag('event', 'start_practice', { 'event_category': 'User Action' });
+            }
+
             document.getElementById('startOverlay').style.display = 'none';
             this.nextQuestion();
         },
@@ -290,6 +305,11 @@
             h.style.display = isHidden ? 'block' : 'none';
             r.style.display = isHidden ? 'block' : 'none';
             btn.style.display = isHidden ? 'none' : 'inline-flex';
+
+            // GA Event: Hint
+            if (isHidden && typeof gtag === 'function') {
+                gtag('event', 'use_hint', { 'event_label': this.currentQ.h });
+            }
         },
 
         startAutoCheck: function () {
@@ -311,7 +331,6 @@
         checkAnswer: async function () {
             if (!this.session || sketch.isEmpty()) return;
             const canvas = document.getElementById('drawingBoard');
-            // AI 用的 (64px, 黑底白字)
             const inputTensor = this.processCanvasForONNX(canvas);
             if (!inputTensor) return;
 
@@ -336,11 +355,20 @@
             const title = document.getElementById('fbTitle');
             const desc = document.getElementById('fbDesc');
             overlay.style.display = 'flex';
+
             if (aiChar === this.currentQ.h) {
                 icon.innerText = '🎉';
                 title.innerText = '答對了！';
                 title.style.color = '#2e7d32';
                 desc.innerText = `AI 看到：${aiChar} (${confidence.toFixed(1)})`;
+
+                // GA Event: Correct
+                if (typeof gtag === 'function') {
+                    gtag('event', 'answer_correct', {
+                        'event_label': this.currentQ.h
+                    });
+                }
+
                 this.streak++;
                 setTimeout(() => this.playAudio(), 200);
             } else {
@@ -348,6 +376,14 @@
                 title.innerText = '嗯...不太像？';
                 title.style.color = '#c62828';
                 desc.innerText = `題目是「${this.currentQ.h}」，AI 看到「${aiChar}」`;
+
+                // GA Event: Wrong
+                if (typeof gtag === 'function') {
+                    gtag('event', 'answer_wrong', {
+                        'event_label': `${this.currentQ.h}_vs_${aiChar}`
+                    });
+                }
+
                 this.streak = 0;
             }
             document.getElementById('streakCount').innerText = this.streak;
@@ -356,6 +392,14 @@
         forceCorrect: function () {
             this.handleSaveAction();
             this.streak++;
+
+            // GA Event: Force Correct
+            if (typeof gtag === 'function') {
+                gtag('event', 'force_correct', {
+                    'event_label': this.currentQ.h
+                });
+            }
+
             document.getElementById('streakCount').innerText = this.streak;
             document.getElementById('fbTitle').innerText = "已回報！";
             setTimeout(() => this.nextQuestion(), 1500);
@@ -369,7 +413,6 @@
 
         handleSaveAction: function() {
             const canvas = document.getElementById('drawingBoard');
-            // ★ 重點修正：這裡產生的圖片要是「黑底白字」且「正方形」
             const readableImage = createBlackBgImage(canvas, 300);
 
             if (!readableImage) return;
@@ -393,7 +436,6 @@
         },
 
         processCanvasForONNX: function (sourceCanvas) {
-            // 給 AI 的也是 64px 黑底白字 (復用同樣邏輯)
             const processedCanvas = createBlackBgImage(sourceCanvas, 64);
             if (!processedCanvas) return null;
             const ctx = processedCanvas.getContext('2d');
@@ -401,7 +443,7 @@
             const {data} = imgData;
             const floatData = new Float32Array(3 * 64 * 64);
             for (let i = 0; i < 64 * 64; i++) {
-                const r = data[i * 4] / 255.0; // 0=黑, 1=白
+                const r = data[i * 4] / 255.0;
                 floatData[i] = r;
                 floatData[64 * 64 + i] = r;
                 floatData[2 * 64 * 64 + i] = r;
@@ -410,8 +452,6 @@
         }
     };
 
-    // ★ 終極核心函式：產生黑底白字的正方形圖片 ★
-    // 此函式同時給 AI (64px) 和 人類存檔 (300px) 使用，確保一致
     function createBlackBgImage(sourceCanvas, targetSize = 300) {
         const ctx = sourceCanvas.getContext('2d');
         const width = sourceCanvas.width;
@@ -419,11 +459,9 @@
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        // 1. 裁切：尋找筆跡邊界
         let minX = width, minY = height, maxX = 0, maxY = 0, found = false;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                // 原始畫布是白底(255) 黑筆(<200)
                 if (data[(y * width + x) * 4] < 200) {
                     if (x < minX) minX = x;
                     if (x > maxX) maxX = x;
@@ -437,58 +475,44 @@
 
         const cropW = maxX - minX + 1;
         const cropH = maxY - minY + 1;
-        const padding = Math.floor(targetSize * 0.1); // 10% 留白
+        const padding = Math.floor(targetSize * 0.1);
 
-        // 2. 計算縮放比例
         const scale = Math.min((targetSize - padding * 2) / cropW, (targetSize - padding * 2) / cropH);
         const sw = Math.floor(cropW * scale);
         const sh = Math.floor(cropH * scale);
         const dx = Math.floor((targetSize - sw) / 2);
         const dy = Math.floor((targetSize - sh) / 2);
 
-        // 3. 建立最終畫布 (黑底)
         const finalC = document.createElement('canvas');
         finalC.width = targetSize;
         finalC.height = targetSize;
         const fCtx = finalC.getContext('2d');
 
-        // 填滿黑色
         fCtx.fillStyle = "black";
         fCtx.fillRect(0, 0, targetSize, targetSize);
 
-        // 4. 縮放與繪製 (先畫在一張白底的暫存上，方便做像素處理)
         const tempC = document.createElement('canvas');
         tempC.width = targetSize;
         tempC.height = targetSize;
         const tCtx = tempC.getContext('2d');
 
-        tCtx.fillStyle = "white"; // 暫存底色為白
+        tCtx.fillStyle = "white";
         tCtx.fillRect(0, 0, targetSize, targetSize);
-        // 畫上縮放後的字 (這時候還是黑色筆跡)
         tCtx.drawImage(sourceCanvas, minX, minY, cropW, cropH, dx, dy, sw, sh);
 
-        // 5. ★ 像素顏色反轉 ★
-        // 我們需要把 白底黑字 轉成 黑底白字
         const tData = tCtx.getImageData(0, 0, targetSize, targetSize);
         const pixels = tData.data;
 
         for(let i=0; i < pixels.length; i+=4) {
-            // 原始：筆跡是黑 (0)，背景是白 (255)
-            // 目標：筆跡是白 (255)，背景是黑 (0)
-            const val = pixels[i]; // 取 R 通道
-
-            // 簡單反轉：如果是亮的(背景)，變全黑(0)；如果是暗的(筆跡)，變全白(255)
+            const val = pixels[i];
             const newVal = val > 128 ? 0 : 255;
-
-            pixels[i] = newVal;     // R
-            pixels[i+1] = newVal;   // G
-            pixels[i+2] = newVal;   // B
-            pixels[i+3] = 255;      // Alpha
+            pixels[i] = newVal;
+            pixels[i+1] = newVal;
+            pixels[i+2] = newVal;
+            pixels[i+3] = 255;
         }
 
-        // 將反轉後的像素放到最終的黑底畫布上
         fCtx.putImageData(tData, 0, 0);
-
         return finalC;
     }
 
@@ -497,7 +521,6 @@
             this.c = document.getElementById('drawingBoard');
             this.ctx = this.c.getContext('2d', {willReadFrequently: true});
             const wrapper = this.c.parentElement;
-            // 強制畫布內部解析度為正方形 (避免手機網址列伸縮導致長方形)
             this.c.width = wrapper.clientWidth;
             this.c.height = wrapper.clientWidth;
             this.clear();
@@ -541,7 +564,6 @@
             const r = this.c.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            // 座標轉換 (CSS 尺寸 -> Canvas 像素)
             const scaleX = this.c.width / r.width;
             const scaleY = this.c.height / r.height;
             return {
