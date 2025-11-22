@@ -17,7 +17,7 @@
             overflow: hidden;
         }
 
-        /* 1. 啟動遮罩 (聲音解鎖) */
+        /* 啟動遮罩 (聲音解鎖) */
         #startOverlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255, 255, 255, 0.98); z-index: 9999;
@@ -25,7 +25,7 @@
             text-align: center;
         }
 
-        /* 2. 圖片儲存彈窗 (iOS 專用) */
+        /* 圖片儲存彈窗 (僅手機顯示) */
         #saveModal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.85); z-index: 10000;
@@ -119,9 +119,9 @@
     </div>
 </div>
 
-<!-- 圖片儲存彈窗 (解決 iOS 無法下載) -->
+<!-- 圖片儲存彈窗 (僅在手機/平板出現) -->
 <div id="saveModal" onclick="this.style.display='none'">
-    <h3 class="text-white mb-3">長按圖片加入照片</h3>
+    <h3 id="saveHintText" class="text-white mb-3">長按圖片加入照片</h3>
     <img id="saveImageDisplay" src="" alt="Sample">
     <p class="text-white-50 mt-3 small">點擊任意處關閉</p>
 </div>
@@ -207,7 +207,6 @@
         },
 
         unlockAudio: function() {
-            // 解鎖 AudioContext
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (AudioContext) {
                 const ctx = new AudioContext();
@@ -216,13 +215,11 @@
                 osc.start(0);
                 osc.stop(0.01);
             }
-            // 解鎖 SpeechSynthesis
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 const u = new SpeechSynthesisUtterance('');
                 window.speechSynthesis.speak(u);
             }
-
             this.isAudioUnlocked = true;
             document.getElementById('startOverlay').style.display = 'none';
             this.nextQuestion();
@@ -259,51 +256,40 @@
             document.getElementById('btnPlay').style.display = 'inline-flex';
 
             sketch.clear();
-
             if (this.isAudioUnlocked) {
                 setTimeout(() => this.playAudio(), 500);
             }
         },
 
-        // ★★★ 核心修改：高音質發音 + 備用發音 ★★★
+        // 高音質發音 + 備用
         playAudio: function () {
             if (!this.currentQ) return;
             const char = this.currentQ.h;
-
-            // 1. 嘗試使用 Google 高品質音檔 (需要網路)
-            // client=tw-ob 是一個公開但非官方的接口，回傳 MP3
+            // 使用 Google 高品質 TTS
             const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(char)}`;
-
             const audio = new Audio(audioUrl);
-
-            // 播放，如果失敗 (例如沒網路) 則切換到備用的內建發音
             const playPromise = audio.play();
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
-                    console.warn("Google TTS 載入失敗，切換回內建發音", error);
+                    console.warn("TTS Error, fallback", error);
                     this.playFallbackAudio(char);
                 });
             }
         },
 
-        // 內建發音 (離線或網路失敗時使用)
         playFallbackAudio: function (text) {
             if (!('speechSynthesis' in window)) return;
             window.speechSynthesis.cancel();
-
             const u = new SpeechSynthesisUtterance(text);
             u.lang = 'ja-JP';
             u.rate = 0.8;
-
             const voices = window.speechSynthesis.getVoices();
             const preferredVoice =
                 voices.find(v => v.lang === 'ja-JP' && v.name.includes("Kyoko")) ||
                 voices.find(v => v.lang === 'ja-JP' && v.name.includes("Otoya")) ||
                 voices.find(v => v.lang === 'ja-JP');
-
             if (preferredVoice) u.voice = preferredVoice;
             window.speechSynthesis.speak(u);
-
             if (window.speechSynthesis.paused) window.speechSynthesis.resume();
         },
 
@@ -367,9 +353,7 @@
             const icon = document.getElementById('fbIcon');
             const title = document.getElementById('fbTitle');
             const desc = document.getElementById('fbDesc');
-
             overlay.style.display = 'flex';
-
             if (aiChar === this.currentQ.h) {
                 icon.innerText = '🎉';
                 title.innerText = '答對了！';
@@ -387,12 +371,13 @@
             document.getElementById('streakCount').innerText = this.streak;
         },
 
+        // ★★★ 核心修改：區分電腦與手機的儲存邏輯 ★★★
         forceCorrect: function () {
-            this.showSaveModal(); // 觸發彈窗顯示
+            this.handleSaveAction(); // 呼叫新的儲存處理函式
             this.streak++;
             document.getElementById('streakCount').innerText = this.streak;
             document.getElementById('fbTitle').innerText = "已回報！";
-            setTimeout(() => this.nextQuestion(), 1500); // 延遲久一點讓使用者看彈窗
+            setTimeout(() => this.nextQuestion(), 1500);
         },
 
         markAsWrong: function () {
@@ -401,31 +386,41 @@
             this.nextQuestion();
         },
 
-        // ★★★ 核心修改：彈窗存圖 (解決 iOS 下載失敗) ★★★
-        showSaveModal: function () {
+        // 新增：處理儲存邏輯 (區分 Mobile/Desktop)
+        handleSaveAction: function() {
             const canvas = document.getElementById('drawingBoard');
             const processed = processCanvasForAI(canvas, 64);
+            if (!processed) return;
 
-            if (processed) {
-                const dataUrl = processed.toDataURL("image/png");
+            const dataUrl = processed.toDataURL("image/png");
+
+            // 簡易的 Mobile 裝置偵測 (包含 iPhone, Android 等)
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+            if (isMobile) {
+                // 如果是手機 -> 顯示彈窗
                 const modal = document.getElementById('saveModal');
                 const img = document.getElementById('saveImageDisplay');
-
                 img.src = dataUrl;
                 modal.style.display = 'flex';
-                // 2秒後如果使用者沒關閉，自動關閉也可以，這裡先不加，讓使用者手動關
+            } else {
+                // 如果是電腦 -> 直接觸發下載
+                const link = document.createElement('a');
+                link.download = `${this.currentQ.r}_${Date.now()}.png`;
+                link.href = dataUrl;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             }
         },
 
         processCanvasForONNX: function (sourceCanvas) {
             const processedCanvas = processCanvasForAI(sourceCanvas, 64);
             if (!processedCanvas) return null;
-
             const ctx = processedCanvas.getContext('2d');
             const imgData = ctx.getImageData(0, 0, 64, 64);
             const {data} = imgData;
             const floatData = new Float32Array(3 * 64 * 64);
-
             for (let i = 0; i < 64 * 64; i++) {
                 const r = data[i * 4] / 255.0;
                 floatData[i] = r;
@@ -436,14 +431,12 @@
         }
     };
 
-    // 影像前處理 (裁切與縮放)
     function processCanvasForAI(sourceCanvas, targetSize = 64) {
         const ctx = sourceCanvas.getContext('2d');
         const width = sourceCanvas.width;
         const height = sourceCanvas.height;
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
-
         let minX = width, minY = height, maxX = 0, maxY = 0, found = false;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -457,7 +450,6 @@
             }
         }
         if (!found) return null;
-
         const cropW = maxX - minX;
         const cropH = maxY - minY;
         const finalC = document.createElement('canvas');
@@ -466,23 +458,19 @@
         const fCtx = finalC.getContext('2d');
         fCtx.fillStyle = "black";
         fCtx.fillRect(0, 0, targetSize, targetSize);
-
         const pad = 6;
         const scale = Math.min((targetSize - pad * 2) / cropW, (targetSize - pad * 2) / cropH);
         const sw = cropW * scale;
         const sh = cropH * scale;
         const dx = (targetSize - sw) / 2;
         const dy = (targetSize - sh) / 2;
-
         const tempC = document.createElement('canvas');
         tempC.width = cropW;
         tempC.height = cropH;
         tempC.getContext('2d').drawImage(sourceCanvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
-
         fCtx.filter = 'invert(1)';
         fCtx.drawImage(tempC, 0, 0, cropW, cropH, dx, dy, sw, sh);
         fCtx.filter = 'none';
-
         const idata = fCtx.getImageData(0, 0, targetSize, targetSize);
         const d = idata.data;
         for (let i = 0; i < d.length; i += 4) {
@@ -503,7 +491,6 @@
             this.c.width = wrapper.clientWidth;
             this.c.height = wrapper.clientHeight;
             this.clear();
-
             const start = (e) => {
                 if (e.target.tagName === 'BUTTON') return;
                 e.preventDefault();
@@ -513,7 +500,6 @@
                 this.ctx.moveTo(p.x, p.y);
                 app.cancelAutoCheck();
             };
-
             const move = (e) => {
                 if (e.target.tagName === 'BUTTON') return;
                 e.preventDefault();
@@ -523,19 +509,16 @@
                     this.ctx.stroke();
                 }
             };
-
             const end = () => {
                 this.draw = false;
                 app.startAutoCheck();
             };
-
             this.c.addEventListener('mousedown', start);
             this.c.addEventListener('mousemove', move);
             this.c.addEventListener('mouseup', end);
             this.c.addEventListener('touchstart', start, {passive: false});
             this.c.addEventListener('touchmove', move, {passive: false});
             this.c.addEventListener('touchend', end);
-
             window.addEventListener('resize', () => {
                 this.c.width = wrapper.clientWidth;
                 this.c.height = wrapper.clientHeight;
