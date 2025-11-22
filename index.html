@@ -17,7 +17,6 @@
             overflow: hidden;
         }
 
-        /* 啟動遮罩 (聲音解鎖) */
         #startOverlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255, 255, 255, 0.98); z-index: 9999;
@@ -25,15 +24,18 @@
             text-align: center;
         }
 
-        /* 圖片儲存彈窗 (僅手機顯示) */
         #saveModal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.85); z-index: 10000;
-            display: none; /* 預設隱藏 */
+            display: none;
             flex-direction: column; justify-content: center; align-items: center;
         }
         #saveModal img {
-            background: white; border-radius: 16px; max-width: 80%;
+            background: #333; /* 背景改深色以便觀察白字 */
+            border: 2px solid #fff;
+            border-radius: 16px;
+            width: 200px; height: 200px; /* 強制顯示大小 */
+            image-rendering: pixelated; /* 讓像素清晰 */
             box-shadow: 0 0 20px rgba(255,255,255,0.2);
         }
 
@@ -71,9 +73,15 @@
             font-size: 1.2rem; color: #666; margin-top: 10px; display: none;
         }
 
+        /* 強制畫布容器為正方形 */
         .canvas-container {
-            position: relative; width: 100%; aspect-ratio: 1; background: #fff;
-            cursor: crosshair; border-top: 2px dashed #e0e0e0; border-bottom: 2px dashed #e0e0e0;
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1; /* 現代瀏覽器強制正方形 */
+            background: #fff;
+            cursor: crosshair;
+            border-top: 2px dashed #e0e0e0;
+            border-bottom: 2px dashed #e0e0e0;
         }
         canvas { width: 100%; height: 100%; display: block; }
 
@@ -107,7 +115,6 @@
 </head>
 <body>
 
-<!-- 啟動頁面 -->
 <div id="startOverlay">
     <div class="mb-4" style="font-size: 3rem;">🎌</div>
     <h1 class="mb-4 text-primary fw-bold">聽寫特訓</h1>
@@ -119,11 +126,12 @@
     </div>
 </div>
 
-<!-- 圖片儲存彈窗 (僅在手機/平板出現) -->
+<!-- 圖片儲存彈窗 -->
 <div id="saveModal" onclick="this.style.display='none'">
     <h3 id="saveHintText" class="text-white mb-3">長按圖片加入照片</h3>
+    <!-- 這裡顯示的會是 AI 看到的真正樣子 (黑底白字) -->
     <img id="saveImageDisplay" src="" alt="Sample">
-    <p class="text-white-50 mt-3 small">點擊任意處關閉</p>
+    <p class="text-white-50 mt-3 small">這是 AI 看到的影像 (64x64)</p>
 </div>
 
 <div class="top-bar">
@@ -168,13 +176,14 @@
             <div class="border-top pt-3 mt-2">
                 <small class="text-muted d-block mb-2">AI 判斷錯了嗎？</small>
                 <button class="btn btn-outline-danger btn-sm w-100" onclick="app.markAsWrong()">❌ 其實我寫錯了</button>
-                <button class="btn btn-outline-success btn-sm w-100 mt-2" onclick="app.forceCorrect()">⭕ 其實我是對的 (存圖)</button>
+                <button class="btn btn-outline-success btn-sm w-100 mt-2" onclick="app.forceCorrect()">⭕ 其實我是對的 (存樣本)</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
+    // 題庫
     const KANA_DB = [
         {r: 'a', h: 'あ'}, {r: 'i', h: 'い'}, {r: 'u', h: 'う'}, {r: 'e', h: 'え'}, {r: 'o', h: 'お'},
         {r: 'ka', h: 'か'}, {r: 'ki', h: 'き'}, {r: 'ku', h: 'く'}, {r: 'ke', h: 'け'}, {r: 'ko', h: 'こ'},
@@ -199,9 +208,7 @@
 
         init: async function () {
             sketch.init();
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.getVoices();
-            }
+            if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
             await this.loadLabels();
             await this.initAI();
         },
@@ -248,30 +255,24 @@
         nextQuestion: function () {
             document.getElementById('feedbackOverlay').style.display = 'none';
             this.currentQ = KANA_DB[Math.floor(Math.random() * KANA_DB.length)];
-
             document.getElementById('visualHint').style.display = 'none';
             document.getElementById('visualHint').innerText = this.currentQ.h;
             document.getElementById('romajiHint').style.display = 'none';
             document.getElementById('romajiHint').innerText = this.currentQ.r;
             document.getElementById('btnPlay').style.display = 'inline-flex';
-
             sketch.clear();
-            if (this.isAudioUnlocked) {
-                setTimeout(() => this.playAudio(), 500);
-            }
+            if (this.isAudioUnlocked) setTimeout(() => this.playAudio(), 500);
         },
 
-        // 高音質發音 + 備用
         playAudio: function () {
             if (!this.currentQ) return;
             const char = this.currentQ.h;
-            // 使用 Google 高品質 TTS
             const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(char)}`;
             const audio = new Audio(audioUrl);
             const playPromise = audio.play();
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
-                    console.warn("TTS Error, fallback", error);
+                    console.warn("Fallback TTS", error);
                     this.playFallbackAudio(char);
                 });
             }
@@ -284,10 +285,7 @@
             u.lang = 'ja-JP';
             u.rate = 0.8;
             const voices = window.speechSynthesis.getVoices();
-            const preferredVoice =
-                voices.find(v => v.lang === 'ja-JP' && v.name.includes("Kyoko")) ||
-                voices.find(v => v.lang === 'ja-JP' && v.name.includes("Otoya")) ||
-                voices.find(v => v.lang === 'ja-JP');
+            const preferredVoice = voices.find(v => v.lang === 'ja-JP' && (v.name.includes("Kyoko") || v.name.includes("Otoya")));
             if (preferredVoice) u.voice = preferredVoice;
             window.speechSynthesis.speak(u);
             if (window.speechSynthesis.paused) window.speechSynthesis.resume();
@@ -321,7 +319,6 @@
 
         checkAnswer: async function () {
             if (!this.session || sketch.isEmpty()) return;
-
             const canvas = document.getElementById('drawingBoard');
             const inputTensor = this.processCanvasForONNX(canvas);
             if (!inputTensor) return;
@@ -330,21 +327,14 @@
                 const feeds = {input: inputTensor};
                 const results = await this.session.run(feeds);
                 const outputData = results.output.data;
-
-                let maxVal = -Infinity;
-                let maxIdx = -1;
+                let maxVal = -Infinity, maxIdx = -1;
                 for (let i = 0; i < outputData.length; i++) {
-                    if (outputData[i] > maxVal) {
-                        maxVal = outputData[i];
-                        maxIdx = i;
-                    }
+                    if (outputData[i] > maxVal) { maxVal = outputData[i]; maxIdx = i; }
                 }
-
                 const aiChar = MODEL_LABELS[maxIdx];
                 const mapFix = {"ta": "た", "te": "て", "ha": "は", "he": "へ", "ho": "ほ"};
                 const displayChar = mapFix[aiChar] || aiChar;
                 this.showFeedback(displayChar, maxVal);
-
             } catch (e) { console.error(e); }
         },
 
@@ -371,9 +361,8 @@
             document.getElementById('streakCount').innerText = this.streak;
         },
 
-        // ★★★ 核心修改：區分電腦與手機的儲存邏輯 ★★★
         forceCorrect: function () {
-            this.handleSaveAction(); // 呼叫新的儲存處理函式
+            this.handleSaveAction();
             this.streak++;
             document.getElementById('streakCount').innerText = this.streak;
             document.getElementById('fbTitle').innerText = "已回報！";
@@ -386,25 +375,21 @@
             this.nextQuestion();
         },
 
-        // 新增：處理儲存邏輯 (區分 Mobile/Desktop)
         handleSaveAction: function() {
             const canvas = document.getElementById('drawingBoard');
+            // 取得處理過後的 64x64 影像 (確保是黑底白字)
             const processed = processCanvasForAI(canvas, 64);
             if (!processed) return;
 
             const dataUrl = processed.toDataURL("image/png");
-
-            // 簡易的 Mobile 裝置偵測 (包含 iPhone, Android 等)
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
             if (isMobile) {
-                // 如果是手機 -> 顯示彈窗
                 const modal = document.getElementById('saveModal');
                 const img = document.getElementById('saveImageDisplay');
                 img.src = dataUrl;
                 modal.style.display = 'flex';
             } else {
-                // 如果是電腦 -> 直接觸發下載
                 const link = document.createElement('a');
                 link.download = `${this.currentQ.r}_${Date.now()}.png`;
                 link.href = dataUrl;
@@ -421,7 +406,11 @@
             const imgData = ctx.getImageData(0, 0, 64, 64);
             const {data} = imgData;
             const floatData = new Float32Array(3 * 64 * 64);
+
+            // 這裡直接讀取處理好的影像 (已經是黑底白字)，不用再處理
             for (let i = 0; i < 64 * 64; i++) {
+                // 因為 processCanvasForAI 已經確保是黑底白字，所以直接取紅色通道即可
+                // 黑色=0，白色=255，歸一化成 0.0 ~ 1.0
                 const r = data[i * 4] / 255.0;
                 floatData[i] = r;
                 floatData[64 * 64 + i] = r;
@@ -431,16 +420,20 @@
         }
     };
 
+    // ★★★ 重寫的核心：確保正方形與顏色正確反轉 ★★★
     function processCanvasForAI(sourceCanvas, targetSize = 64) {
         const ctx = sourceCanvas.getContext('2d');
         const width = sourceCanvas.width;
         const height = sourceCanvas.height;
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
+
+        // 1. 尋找邊界 (白底黑字，所以找 < 250 的點)
         let minX = width, minY = height, maxX = 0, maxY = 0, found = false;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                if (data[(y * width + x) * 4] < 250) {
+                // 尋找黑色筆跡 (假設筆跡夠黑)
+                if (data[(y * width + x) * 4] < 200) {
                     if (x < minX) minX = x;
                     if (x > maxX) maxX = x;
                     if (y < minY) minY = y;
@@ -449,37 +442,77 @@
                 }
             }
         }
-        if (!found) return null;
-        const cropW = maxX - minX;
-        const cropH = maxY - minY;
+        if (!found) return null; // 空白畫布
+
+        // 2. 計算裁剪區域
+        const cropW = maxX - minX + 1;
+        const cropH = maxY - minY + 1;
+
+        // 3. 計算縮放比例 (保持長寬比)
+        // 預留 10px padding 讓字不要頂到邊
+        const padding = 10;
+        const scale = Math.min((targetSize - padding) / cropW, (targetSize - padding) / cropH);
+        const sw = Math.floor(cropW * scale);
+        const sh = Math.floor(cropH * scale);
+
+        // 4. 計算置中位置
+        const dx = Math.floor((targetSize - sw) / 2);
+        const dy = Math.floor((targetSize - sh) / 2);
+
+        // 5. 建立目標畫布 (64x64)
         const finalC = document.createElement('canvas');
         finalC.width = targetSize;
         finalC.height = targetSize;
         const fCtx = finalC.getContext('2d');
+
+        // 6. ★關鍵修改：不使用 CSS filter，改用手動像素搬運★
+        // 這樣可以確保手機上也一定是黑底白字
+
+        // 先填滿全黑 (AI 需要黑底)
         fCtx.fillStyle = "black";
         fCtx.fillRect(0, 0, targetSize, targetSize);
-        const pad = 6;
-        const scale = Math.min((targetSize - pad * 2) / cropW, (targetSize - pad * 2) / cropH);
-        const sw = cropW * scale;
-        const sh = cropH * scale;
-        const dx = (targetSize - sw) / 2;
-        const dy = (targetSize - sh) / 2;
+
+        // 暫時畫布存裁剪下的原圖 (白底黑字)
         const tempC = document.createElement('canvas');
         tempC.width = cropW;
         tempC.height = cropH;
-        tempC.getContext('2d').drawImage(sourceCanvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
-        fCtx.filter = 'invert(1)';
-        fCtx.drawImage(tempC, 0, 0, cropW, cropH, dx, dy, sw, sh);
-        fCtx.filter = 'none';
-        const idata = fCtx.getImageData(0, 0, targetSize, targetSize);
-        const d = idata.data;
-        for (let i = 0; i < d.length; i += 4) {
-            const v = d[i] > 80 ? 255 : 0;
-            d[i] = v;
-            d[i + 1] = v;
-            d[i + 2] = v;
+        const tCtx = tempC.getContext('2d');
+        tCtx.drawImage(sourceCanvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+
+        // 縮放畫到另一個暫存 (縮放後的白底黑字)
+        const scaledC = document.createElement('canvas');
+        scaledC.width = targetSize;
+        scaledC.height = targetSize;
+        const sCtx = scaledC.getContext('2d');
+        // 填白底
+        sCtx.fillStyle = "white";
+        sCtx.fillRect(0, 0, targetSize, targetSize);
+        // 畫上縮放後的字
+        sCtx.drawImage(tempC, 0, 0, cropW, cropH, dx, dy, sw, sh);
+
+        // 7. 手動反轉顏色 (確保相容性)
+        const sData = sCtx.getImageData(0, 0, targetSize, targetSize);
+        const pixels = sData.data;
+        for(let i=0; i < pixels.length; i+=4) {
+            // 原本: 白底(255)黑字(0)
+            // 目標: 黑底(0)白字(255)
+
+            // 簡單反轉算法: 255 - 原值
+            // 加上二值化增強對比 (Thresholding)
+            const val = pixels[i]; // 取 R 通道即可 (黑白圖)
+
+            // 如果原本是亮(背景)，變黑(0)；如果原本是暗(筆跡)，變白(255)
+            const newVal = val > 150 ? 0 : 255;
+
+            pixels[i] = newVal;     // R
+            pixels[i+1] = newVal;   // G
+            pixels[i+2] = newVal;   // B
+            pixels[i+3] = 255;      // Alpha 固定不透明
         }
-        fCtx.putImageData(idata, 0, 0);
+
+        // 將處理後的像素放回最終畫布
+        fCtx.putImageData(sData, 0, 0);
+
         return finalC;
     }
 
@@ -488,8 +521,16 @@
             this.c = document.getElementById('drawingBoard');
             this.ctx = this.c.getContext('2d', {willReadFrequently: true});
             const wrapper = this.c.parentElement;
+
+            // ★關鍵修改：強制讓畫布內部解析度為正方形 (取較短邊)★
+            // 這樣即使 CSS 因為網址列被拉長，畫布內容座標還是 1:1
+            const size = Math.min(wrapper.clientWidth, wrapper.clientHeight);
+
+            // 或者，更簡單的，我們讓 canvas 解析度跟隨寬度 (因為寬度通常不變)
+            // 高度若有變，CSS aspect-ratio:1 會控制顯示，但內部像素我們設為一樣
             this.c.width = wrapper.clientWidth;
-            this.c.height = wrapper.clientHeight;
+            this.c.height = wrapper.clientWidth; // 強制正方形解析度
+
             this.clear();
             const start = (e) => {
                 if (e.target.tagName === 'BUTTON') return;
@@ -519,9 +560,11 @@
             this.c.addEventListener('touchstart', start, {passive: false});
             this.c.addEventListener('touchmove', move, {passive: false});
             this.c.addEventListener('touchend', end);
+
+            // 視窗改變大小時重新調整
             window.addEventListener('resize', () => {
                 this.c.width = wrapper.clientWidth;
-                this.c.height = wrapper.clientHeight;
+                this.c.height = wrapper.clientWidth; // 保持正方形
                 this.clear();
             });
         },
@@ -529,12 +572,21 @@
             const r = this.c.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return {x: clientX - r.left, y: clientY - r.top};
+
+            // 因為我們強制 canvas 解析度與 CSS 顯示尺寸可能不同 (如果被拉伸)
+            // 所以要進行座標轉換
+            const scaleX = this.c.width / r.width;
+            const scaleY = this.c.height / r.height;
+
+            return {
+                x: (clientX - r.left) * scaleX,
+                y: (clientY - r.top) * scaleY
+            };
         },
         clear: function () {
             this.ctx.fillStyle = "white";
             this.ctx.fillRect(0, 0, this.c.width, this.c.height);
-            this.ctx.lineWidth = 15;
+            this.ctx.lineWidth = 15; // 稍微加粗一點，手機上寫字比較清楚
             this.ctx.lineCap = 'round';
             this.ctx.lineJoin = 'round';
             this.ctx.strokeStyle = 'black';
