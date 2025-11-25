@@ -308,411 +308,404 @@
     </div>
 </div>
 
-<script>
+  <script>
+    // 使用你提供的 KANA_DB
     const KANA_DB = [
-        {r: 'a', h: 'あ'}, {r: 'i', h: 'い'}, {r: 'u', h: 'う'}, {r: 'e', h: 'え'}, {r: 'o', h: 'お'},
-        {r: 'ka', h: 'か'}, {r: 'ki', h: 'き'}, {r: 'ku', h: 'く'}, {r: 'ke', h: 'け'}, {r: 'ko', h: 'こ'},
-        {r: 'sa', h: 'さ'}, {r: 'shi', h: 'し'}, {r: 'su', h: 'す'}, {r: 'se', h: 'せ'}, {r: 'so', h: 'そ'},
-        {r: 'ta', h: 'た'}, {r: 'chi', h: 'ち'}, {r: 'tsu', h: 'つ'}, {r: 'te', h: 'て'}, {r: 'to', h: 'と'},
-        {r: 'na', h: 'な'}, {r: 'ni', h: 'に'}, {r: 'nu', h: 'ぬ'}, {r: 'ne', h: 'ね'}, {r: 'no', h: 'の'},
-        {r: 'ha', h: 'は'}, {r: 'hi', h: 'ひ'}, {r: 'fu', h: 'ふ'}, {r: 'he', h: 'へ'}, {r: 'ho', h: 'ほ'},
-        {r: 'ma', h: 'ま'}, {r: 'mi', h: 'み'}, {r: 'mu', h: 'む'}, {r: 'me', h: 'め'}, {r: 'mo', h: 'も'},
-        {r: 'ya', h: 'や'}, {r: 'yu', h: 'ゆ'}, {r: 'yo', h: 'よ'},
-        {r: 'ra', h: 'ら'}, {r: 'ri', h: 'り'}, {r: 'ru', h: 'る'}, {r: 're', h: 'れ'}, {r: 'ro', h: 'ろ'},
-        {r: 'wa', h: 'わ'}, {r: 'wo', h: 'を'}, {r: 'n', h: 'ん'}
+      {r: 'a', h: 'あ'}, {r: 'i', h: 'い'}, {r: 'u', h: 'う'}, {r: 'e', h: 'え'}, {r: 'o', h: 'お'},
+      {r: 'ka', h: 'か'}, {r: 'ki', h: 'き'}, {r: 'ku', h: 'く'}, {r: 'ke', h: 'け'}, {r: 'ko', h: 'こ'},
+      {r: 'sa', h: 'さ'}, {r: 'shi', h: 'し'}, {r: 'su', h: 'す'}, {r: 'se', h: 'せ'}, {r: 'so', h: 'そ'},
+      {r: 'ta', h: 'た'}, {r: 'chi', h: 'ち'}, {r: 'tsu', h: 'つ'}, {r: 'te', h: 'て'}, {r: 'to', h: 'と'},
+      {r: 'na', h: 'な'}, {r: 'ni', h: 'に'}, {r: 'nu', h: 'ぬ'}, {r: 'ne', h: 'ね'}, {r: 'no', h: 'の'},
+      {r: 'ha', h: 'は'}, {r: 'hi', h: 'ひ'}, {r: 'fu', h: 'ふ'}, {r: 'he', h: 'へ'}, {r: 'ho', h: 'ほ'},
+      {r: 'ma', h: 'ま'}, {r: 'mi', h: 'み'}, {r: 'mu', h: 'む'}, {r: 'me', h: 'め'}, {r: 'mo', h: 'も'},
+      {r: 'ya', h: 'や'}, {r: 'yu', h: 'ゆ'}, {r: 'yo', h: 'よ'},
+      {r: 'ra', h: 'ら'}, {r: 'ri', h: 'り'}, {r: 'ru', h: 'る'}, {r: 're', h: 'れ'}, {r: 'ro', h: 'ろ'},
+      {r: 'wa', h: 'わ'}, {r: 'wo', h: 'を'}, {r: 'n', h: 'ん'}
     ];
 
     let MODEL_LABELS = [];
 
     const app = {
-        session: null,
-        currentQ: null,
-        streak: 0,
-        autoCheckTimer: null,
-        isAudioUnlocked: false,
+      session: null,
+      currentQ: null,
+      streak: 0,
+      autoCheckTimer: null,
+      isAudioUnlocked: false,
 
-        init: async function () {
-            sketch.init();
-            if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
-            await this.loadLabels();
-            await this.initAI();
-        },
+      init: async function () {
+        sketch.init();
+        if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
+        await this.loadLabels();
+        await this.initAI();
 
-        unlockAudio: function () {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (AudioContext) {
-                const ctx = new AudioContext();
-                const osc = ctx.createOscillator();
-                osc.connect(ctx.destination);
-                osc.start(0);
-                osc.stop(0.01);
-            }
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const u = new SpeechSynthesisUtterance('');
-                window.speechSynthesis.speak(u);
-            }
-            this.isAudioUnlocked = true;
+        document.getElementById('btnStart').addEventListener('click', () => this.unlockAudio());
+        document.getElementById('btnPlay').addEventListener('click', () => this.playAudio());
+        document.getElementById('btnHint').addEventListener('click', () => this.toggleHint());
+        document.getElementById('btnClear').addEventListener('click', () => sketch.clear());
+        document.getElementById('btnSave').addEventListener('click', () => this.handleSaveAction());
+        document.getElementById('btnNext').addEventListener('click', () => this.nextQuestion());
+        document.getElementById('btnForce').addEventListener('click', () => this.forceCorrect());
+        document.getElementById('btnWrong').addEventListener('click', () => this.markAsWrong());
+        document.getElementById('btnCloseSave').addEventListener('click', () => {
+          document.getElementById('saveModal').style.display = 'none';
+        });
+      },
 
-            // GA Event: Start
-            if (typeof gtag === 'function') {
-                gtag('event', 'start_practice', {'event_category': 'User Action'});
-            }
-
-            document.getElementById('startOverlay').style.display = 'none';
-            this.nextQuestion();
-        },
-
-        loadLabels: async function () {
-            try {
-                const res = await fetch('./data/labels.json');
-                if (res.ok) MODEL_LABELS = await res.json();
-            } catch (e) {
-                console.warn("Labels error", e);
-            }
-        },
-
-        initAI: async function () {
-            try {
-                const option = {executionProviders: ['wasm']};
-                this.session = await ort.InferenceSession.create('./onnx_model/hiragana.onnx', option);
-                document.getElementById('statusBadge').className = 'badge bg-success';
-                document.getElementById('statusBadge').innerText = 'AI 就緒';
-            } catch (e) {
-                document.getElementById('statusBadge').className = 'badge bg-danger';
-                document.getElementById('statusBadge').innerText = 'AI 失敗';
-            }
-        },
-
-        nextQuestion: function () {
-            document.getElementById('feedbackOverlay').style.display = 'none';
-            this.currentQ = KANA_DB[Math.floor(Math.random() * KANA_DB.length)];
-            document.getElementById('visualHint').style.display = 'none';
-            document.getElementById('visualHint').innerText = this.currentQ.h;
-            document.getElementById('romajiHint').style.display = 'none';
-            document.getElementById('romajiHint').innerText = this.currentQ.r;
-            document.getElementById('btnPlay').style.display = 'inline-flex';
-            sketch.clear();
-            if (this.isAudioUnlocked) setTimeout(() => this.playAudio(), 500);
-        },
-
-        playAudio: function () {
-            if (!this.currentQ) return;
-            const char = this.currentQ.h;
-            const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(char)}`;
-            const audio = new Audio(audioUrl);
-            audio.play().catch(e => this.playFallbackAudio(char));
-        },
-
-        playFallbackAudio: function (text) {
-            if (!('speechSynthesis' in window)) return;
-            window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = 'ja-JP';
-            u.rate = 0.8;
-            const voices = window.speechSynthesis.getVoices();
-            const preferredVoice = voices.find(v => v.lang === 'ja-JP' && (v.name.includes("Kyoko") || v.name.includes("Otoya")));
-            if (preferredVoice) u.voice = preferredVoice;
-            window.speechSynthesis.speak(u);
-            if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-        },
-
-        toggleHint: function () {
-            const h = document.getElementById('visualHint');
-            const r = document.getElementById('romajiHint');
-            const btn = document.getElementById('btnPlay');
-            const isHidden = h.style.display === 'none';
-            h.style.display = isHidden ? 'block' : 'none';
-            r.style.display = isHidden ? 'block' : 'none';
-            btn.style.display = isHidden ? 'none' : 'inline-flex';
-
-            // GA Event: Hint
-            if (isHidden && typeof gtag === 'function') {
-                gtag('event', 'use_hint', {'event_label': this.currentQ.h});
-            }
-        },
-
-        startAutoCheck: function () {
-            if (this.autoCheckTimer) clearTimeout(this.autoCheckTimer);
-            this.autoCheckTimer = setTimeout(() => {
-                if (document.getElementById('feedbackOverlay').style.display === 'none') {
-                    this.checkAnswer();
-                }
-            }, 1200);
-        },
-
-        cancelAutoCheck: function () {
-            if (this.autoCheckTimer) {
-                clearTimeout(this.autoCheckTimer);
-                this.autoCheckTimer = null;
-            }
-        },
-
-        checkAnswer: async function () {
-            if (!this.session || sketch.isEmpty()) return;
-            const canvas = document.getElementById('drawingBoard');
-            const inputTensor = this.processCanvasForONNX(canvas);
-            if (!inputTensor) return;
-
-            try {
-                const feeds = {input: inputTensor};
-                const results = await this.session.run(feeds);
-                const outputData = results.output.data;
-                let maxVal = -Infinity, maxIdx = -1;
-                for (let i = 0; i < outputData.length; i++) {
-                    if (outputData[i] > maxVal) {
-                        maxVal = outputData[i];
-                        maxIdx = i;
-                    }
-                }
-                const aiChar = MODEL_LABELS[maxIdx];
-                const mapFix = {"ta": "た", "te": "て", "ha": "は", "he": "へ", "ho": "ほ"};
-                const displayChar = mapFix[aiChar] || aiChar;
-                this.showFeedback(displayChar, maxVal);
-            } catch (e) {
-                console.error(e);
-            }
-        },
-
-        showFeedback: function (aiChar, confidence) {
-            const overlay = document.getElementById('feedbackOverlay');
-            const icon = document.getElementById('fbIcon');
-            const title = document.getElementById('fbTitle');
-            const desc = document.getElementById('fbDesc');
-            overlay.style.display = 'flex';
-
-            if (aiChar === this.currentQ.h) {
-                icon.innerText = '🎉';
-                title.innerText = '答對了！';
-                title.style.color = '#2e7d32';
-                desc.innerText = `AI 看到：${aiChar} (${confidence.toFixed(1)})`;
-
-                // GA Event: Correct
-                if (typeof gtag === 'function') {
-                    gtag('event', 'answer_correct', {
-                        'event_label': this.currentQ.h
-                    });
-                }
-
-                this.streak++;
-                setTimeout(() => this.playAudio(), 200);
-            } else {
-                icon.innerText = '🤔';
-                title.innerText = '嗯...不太像？';
-                title.style.color = '#c62828';
-                desc.innerText = `題目是「${this.currentQ.h}」，AI 看到「${aiChar}」`;
-
-                // GA Event: Wrong
-                if (typeof gtag === 'function') {
-                    gtag('event', 'answer_wrong', {
-                        'event_label': `${this.currentQ.h}_vs_${aiChar}`
-                    });
-                }
-
-                this.streak = 0;
-            }
-            document.getElementById('streakCount').innerText = this.streak;
-        },
-
-        forceCorrect: function () {
-            this.handleSaveAction();
-            this.streak++;
-
-            // GA Event: Force Correct
-            if (typeof gtag === 'function') {
-                gtag('event', 'force_correct', {
-                    'event_label': this.currentQ.h
-                });
-            }
-
-            document.getElementById('streakCount').innerText = this.streak;
-            document.getElementById('fbTitle').innerText = "已回報！";
-            setTimeout(() => this.nextQuestion(), 1500);
-        },
-
-        markAsWrong: function () {
-            this.streak = 0;
-            document.getElementById('streakCount').innerText = 0;
-            this.nextQuestion();
-        },
-
-        handleSaveAction: function () {
-            const canvas = document.getElementById('drawingBoard');
-            const readableImage = createBlackBgImage(canvas, 300);
-
-            if (!readableImage) return;
-
-            const dataUrl = readableImage.toDataURL("image/png");
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-            if (isMobile) {
-                const modal = document.getElementById('saveModal');
-                const img = document.getElementById('saveImageDisplay');
-                img.src = dataUrl;
-                modal.style.display = 'flex';
-            } else {
-                const link = document.createElement('a');
-                link.download = `${this.currentQ.r}_${Date.now()}.png`;
-                link.href = dataUrl;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-        },
-
-        processCanvasForONNX: function (sourceCanvas) {
-            const processedCanvas = createBlackBgImage(sourceCanvas, 64);
-            if (!processedCanvas) return null;
-            const ctx = processedCanvas.getContext('2d');
-            const imgData = ctx.getImageData(0, 0, 64, 64);
-            const {data} = imgData;
-            const floatData = new Float32Array(3 * 64 * 64);
-            for (let i = 0; i < 64 * 64; i++) {
-                const r = data[i * 4] / 255.0;
-                floatData[i] = r;
-                floatData[64 * 64 + i] = r;
-                floatData[2 * 64 * 64 + i] = r;
-            }
-            return new ort.Tensor('float32', floatData, [1, 3, 64, 64]);
+      loadLabels: async function () {
+        try {
+          const res = await fetch('./data/labels.json');
+          if (res.ok) MODEL_LABELS = await res.json();
+        } catch (e) {
+          console.warn("Labels error", e);
         }
+      },
+
+      initAI: async function () {
+        try {
+          const option = { executionProviders: ['wasm'] };
+          this.session = await ort.InferenceSession.create('./onnx_model/hiragana.onnx', option);
+          document.getElementById('statusBadge').className = 'badge bg-success';
+          document.getElementById('statusBadge').innerText = 'AI 就緒';
+        } catch (e) {
+          document.getElementById('statusBadge').className = 'badge bg-danger';
+          document.getElementById('statusBadge').innerText = 'AI 失敗';
+        }
+      },
+
+      unlockAudio: function () {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          const ctx = new AudioContext();
+          const osc = ctx.createOscillator();
+          osc.connect(ctx.destination);
+          osc.start(0);
+          osc.stop(0.01);
+        }
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance('');
+          window.speechSynthesis.speak(u);
+        }
+        this.isAudioUnlocked = true;
+
+        document.getElementById('startOverlay').style.display = 'none';
+        this.nextQuestion();
+      },
+
+      nextQuestion: function () {
+        document.getElementById('feedbackOverlay').style.display = 'none';
+        this.currentQ = KANA_DB[Math.floor(Math.random() * KANA_DB.length)];
+        const v = document.getElementById('visualHint');
+        const r = document.getElementById('romajiHint');
+        v.style.display = 'none';
+        v.innerText = this.currentQ.h;
+        r.style.display = 'none';
+        r.innerText = this.currentQ.r;
+        document.getElementById('btnPlay').style.display = 'inline-flex';
+        sketch.clear();
+        if (this.isAudioUnlocked) setTimeout(() => this.playAudio(), 500);
+      },
+
+      // 改為讀取本機 /pronunce/{romaji}.mp3
+      playAudio: async function () {
+        if (!this.currentQ) return;
+        const romaji = this.currentQ.r;
+        const audioUrl = `/pronunce/${romaji}.mp3`;
+
+        const loadingEl = document.getElementById('audioLoading');
+        if (loadingEl) loadingEl.style.display = 'block';
+
+        try {
+          const audio = new Audio(audioUrl);
+          // 某些瀏覽器需要用事件確保能播放
+          await audio.play();
+        } catch (e) {
+          console.warn('本機 mp3 播放失敗，改用備援語音：', e);
+          this.playFallbackAudio(this.currentQ.h);
+        } finally {
+          if (loadingEl) loadingEl.style.display = 'none';
+        }
+      },
+
+      playFallbackAudio: function (text) {
+        if (!('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'ja-JP';
+        u.rate = 0.8;
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.lang === 'ja-JP' && (v.name.includes("Kyoko") || v.name.includes("Otoya")));
+        if (preferredVoice) u.voice = preferredVoice;
+        window.speechSynthesis.speak(u);
+        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+      },
+
+      toggleHint: function () {
+        const h = document.getElementById('visualHint');
+        const r = document.getElementById('romajiHint');
+        const btn = document.getElementById('btnPlay');
+        const isHidden = h.style.display === 'none';
+        h.style.display = isHidden ? 'block' : 'none';
+        r.style.display = isHidden ? 'block' : 'none';
+        btn.style.display = isHidden ? 'none' : 'inline-flex';
+      },
+
+      startAutoCheck: function () {
+        if (this.autoCheckTimer) clearTimeout(this.autoCheckTimer);
+        this.autoCheckTimer = setTimeout(() => {
+          if (document.getElementById('feedbackOverlay').style.display === 'none') {
+            this.checkAnswer();
+          }
+        }, 1200);
+      },
+
+      cancelAutoCheck: function () {
+        if (this.autoCheckTimer) {
+          clearTimeout(this.autoCheckTimer);
+          this.autoCheckTimer = null;
+        }
+      },
+
+      checkAnswer: async function () {
+        if (!this.session || sketch.isEmpty()) return;
+        const canvas = document.getElementById('drawingBoard');
+        const inputTensor = this.processCanvasForONNX(canvas);
+        if (!inputTensor) return;
+
+        try {
+          const feeds = { input: inputTensor };
+          const results = await this.session.run(feeds);
+          const outputData = results.output.data;
+          let maxVal = -Infinity, maxIdx = -1;
+          for (let i = 0; i < outputData.length; i++) {
+            if (outputData[i] > maxVal) {
+              maxVal = outputData[i];
+              maxIdx = i;
+            }
+          }
+          const aiChar = MODEL_LABELS[maxIdx];
+          const mapFix = {"ta": "た", "te": "て", "ha": "は", "he": "へ", "ho": "ほ"};
+          const displayChar = mapFix[aiChar] || aiChar;
+          this.showFeedback(displayChar, maxVal);
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      showFeedback: function (aiChar, confidence) {
+        const overlay = document.getElementById('feedbackOverlay');
+        const icon = document.getElementById('fbIcon');
+        const title = document.getElementById('fbTitle');
+        const desc = document.getElementById('fbDesc');
+        overlay.style.display = 'flex';
+
+        if (aiChar === this.currentQ.h) {
+          icon.innerText = '🎉';
+          title.innerText = '答對了！';
+          title.style.color = '#2e7d32';
+          desc.innerText = `AI 看到：${aiChar} (${confidence.toFixed(1)})`;
+          this.streak++;
+          setTimeout(() => this.playAudio(), 200);
+        } else {
+          icon.innerText = '🤔';
+          title.innerText = '嗯...不太像？';
+          title.style.color = '#c62828';
+          desc.innerText = `題目是「${this.currentQ.h}」，AI 看到「${aiChar}」`;
+          this.streak = 0;
+        }
+        document.getElementById('streakCount').innerText = this.streak;
+      },
+
+      forceCorrect: function () {
+        this.handleSaveAction();
+        this.streak++;
+        document.getElementById('streakCount').innerText = this.streak;
+        document.getElementById('fbTitle').innerText = "已回報！";
+        setTimeout(() => this.nextQuestion(), 1500);
+      },
+
+      markAsWrong: function () {
+        this.streak = 0;
+        document.getElementById('streakCount').innerText = 0;
+        this.nextQuestion();
+      },
+
+      handleSaveAction: function () {
+        const canvas = document.getElementById('drawingBoard');
+        const readableImage = createBlackBgImage(canvas, 300);
+        if (!readableImage) return;
+
+        const dataUrl = readableImage.toDataURL("image/png");
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        if (isMobile) {
+          const modal = document.getElementById('saveModal');
+          const img = document.getElementById('saveImageDisplay');
+          img.src = dataUrl;
+          modal.style.display = 'flex';
+        } else {
+          const link = document.createElement('a');
+          link.download = `${this.currentQ.r}_${Date.now()}.png`;
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      },
+
+      processCanvasForONNX: function (sourceCanvas) {
+        const processedCanvas = createBlackBgImage(sourceCanvas, 64);
+        if (!processedCanvas) return null;
+        const ctx = processedCanvas.getContext('2d');
+        const imgData = ctx.getImageData(0, 0, 64, 64);
+        const { data } = imgData;
+        const floatData = new Float32Array(3 * 64 * 64);
+        for (let i = 0; i < 64 * 64; i++) {
+          const r = data[i * 4] / 255.0;
+          floatData[i] = r;
+          floatData[64 * 64 + i] = r;
+          floatData[2 * 64 * 64 + i] = r;
+        }
+        return new ort.Tensor('float32', floatData, [1, 3, 64, 64]);
+      }
     };
 
     function createBlackBgImage(sourceCanvas, targetSize = 300) {
-        const ctx = sourceCanvas.getContext('2d');
-        const width = sourceCanvas.width;
-        const height = sourceCanvas.height;
-        const imgData = ctx.getImageData(0, 0, width, height);
-        const data = imgData.data;
+      const ctx = sourceCanvas.getContext('2d');
+      const width = sourceCanvas.width;
+      const height = sourceCanvas.height;
+      const imgData = ctx.getImageData(0, 0, width, height);
+      const data = imgData.data;
 
-        let minX = width, minY = height, maxX = 0, maxY = 0, found = false;
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                if (data[(y * width + x) * 4] < 200) {
-                    if (x < minX) minX = x;
-                    if (x > maxX) maxX = x;
-                    if (y < minY) minY = y;
-                    if (y > maxY) maxY = y;
-                    found = true;
-                }
-            }
+      let minX = width, minY = height, maxX = 0, maxY = 0, found = false;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (data[(y * width + x) * 4] < 200) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+            found = true;
+          }
         }
-        if (!found) return null;
+      }
+      if (!found) return null;
 
-        const cropW = maxX - minX + 1;
-        const cropH = maxY - minY + 1;
-        const padding = Math.floor(targetSize * 0.1);
+      const cropW = maxX - minX + 1;
+      const cropH = maxY - minY + 1;
+      const padding = Math.floor(targetSize * 0.1);
 
-        const scale = Math.min((targetSize - padding * 2) / cropW, (targetSize - padding * 2) / cropH);
-        const sw = Math.floor(cropW * scale);
-        const sh = Math.floor(cropH * scale);
-        const dx = Math.floor((targetSize - sw) / 2);
-        const dy = Math.floor((targetSize - sh) / 2);
+      const scale = Math.min((targetSize - padding * 2) / cropW, (targetSize - padding * 2) / cropH);
+      const sw = Math.floor(cropW * scale);
+      const sh = Math.floor(cropH * scale);
+      const dx = Math.floor((targetSize - sw) / 2);
+      const dy = Math.floor((targetSize - sh) / 2);
 
-        const finalC = document.createElement('canvas');
-        finalC.width = targetSize;
-        finalC.height = targetSize;
-        const fCtx = finalC.getContext('2d');
+      const finalC = document.createElement('canvas');
+      finalC.width = targetSize;
+      finalC.height = targetSize;
+      const fCtx = finalC.getContext('2d');
 
-        fCtx.fillStyle = "black";
-        fCtx.fillRect(0, 0, targetSize, targetSize);
+      fCtx.fillStyle = "black";
+      fCtx.fillRect(0, 0, targetSize, targetSize);
 
-        const tempC = document.createElement('canvas');
-        tempC.width = targetSize;
-        tempC.height = targetSize;
-        const tCtx = tempC.getContext('2d');
+      const tempC = document.createElement('canvas');
+      tempC.width = targetSize;
+      tempC.height = targetSize;
+      const tCtx = tempC.getContext('2d');
 
-        tCtx.fillStyle = "white";
-        tCtx.fillRect(0, 0, targetSize, targetSize);
-        tCtx.drawImage(sourceCanvas, minX, minY, cropW, cropH, dx, dy, sw, sh);
+      tCtx.fillStyle = "white";
+      tCtx.fillRect(0, 0, targetSize, targetSize);
+      tCtx.drawImage(sourceCanvas, minX, minY, cropW, cropH, dx, dy, sw, sh);
 
-        const tData = tCtx.getImageData(0, 0, targetSize, targetSize);
-        const pixels = tData.data;
+      const tData = tCtx.getImageData(0, 0, targetSize, targetSize);
+      const pixels = tData.data;
 
-        for (let i = 0; i < pixels.length; i += 4) {
-            const val = pixels[i];
-            const newVal = val > 128 ? 0 : 255;
-            pixels[i] = newVal;
-            pixels[i + 1] = newVal;
-            pixels[i + 2] = newVal;
-            pixels[i + 3] = 255;
-        }
+      for (let i = 0; i < pixels.length; i += 4) {
+        const val = pixels[i];
+        const newVal = val > 128 ? 0 : 255;
+        pixels[i] = newVal;
+        pixels[i + 1] = newVal;
+        pixels[i + 2] = newVal;
+        pixels[i + 3] = 255;
+      }
 
-        fCtx.putImageData(tData, 0, 0);
-        return finalC;
+      fCtx.putImageData(tData, 0, 0);
+      return finalC;
     }
 
     const sketch = {
-        init: function () {
-            this.c = document.getElementById('drawingBoard');
-            this.ctx = this.c.getContext('2d', {willReadFrequently: true});
-            const wrapper = this.c.parentElement;
-            this.c.width = wrapper.clientWidth;
-            this.c.height = wrapper.clientWidth;
-            this.clear();
+      init: function () {
+        this.c = document.getElementById('drawingBoard');
+        this.ctx = this.c.getContext('2d', { willReadFrequently: true });
+        const wrapper = this.c.parentElement;
+        this.c.width = wrapper.clientWidth;
+        this.c.height = wrapper.clientWidth;
+        this.clear();
 
-            const start = (e) => {
-                if (e.target.tagName === 'BUTTON') return;
-                e.preventDefault();
-                this.draw = true;
-                this.ctx.beginPath();
-                const p = this.pos(e);
-                this.ctx.moveTo(p.x, p.y);
-                app.cancelAutoCheck();
-            };
-            const move = (e) => {
-                if (e.target.tagName === 'BUTTON') return;
-                e.preventDefault();
-                if (this.draw) {
-                    const p = this.pos(e);
-                    this.ctx.lineTo(p.x, p.y);
-                    this.ctx.stroke();
-                }
-            };
-            const end = () => {
-                this.draw = false;
-                app.startAutoCheck();
-            };
-            this.c.addEventListener('mousedown', start);
-            this.c.addEventListener('mousemove', move);
-            this.c.addEventListener('mouseup', end);
-            this.c.addEventListener('touchstart', start, {passive: false});
-            this.c.addEventListener('touchmove', move, {passive: false});
-            this.c.addEventListener('touchend', end);
+        const start = (e) => {
+          if (e.target.tagName === 'BUTTON') return;
+          e.preventDefault();
+          this.draw = true;
+          this.ctx.beginPath();
+          const p = this.pos(e);
+          this.ctx.moveTo(p.x, p.y);
+          app.cancelAutoCheck();
+        };
+        const move = (e) => {
+          if (e.target.tagName === 'BUTTON') return;
+          e.preventDefault();
+          if (this.draw) {
+            const p = this.pos(e);
+            this.ctx.lineTo(p.x, p.y);
+            this.ctx.stroke();
+          }
+        };
+        const end = () => {
+          this.draw = false;
+          app.startAutoCheck();
+        };
+        this.c.addEventListener('mousedown', start);
+        this.c.addEventListener('mousemove', move);
+        this.c.addEventListener('mouseup', end);
+        this.c.addEventListener('touchstart', start, { passive: false });
+        this.c.addEventListener('touchmove', move, { passive: false });
+        this.c.addEventListener('touchend', end);
 
-            window.addEventListener('resize', () => {
-                this.c.width = wrapper.clientWidth;
-                this.c.height = wrapper.clientWidth;
-                this.clear();
-            });
-        },
-        pos: function (e) {
-            const r = this.c.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            const scaleX = this.c.width / r.width;
-            const scaleY = this.c.height / r.height;
-            return {
-                x: (clientX - r.left) * scaleX,
-                y: (clientY - r.top) * scaleY
-            };
-        },
-        clear: function () {
-            this.ctx.fillStyle = "white";
-            this.ctx.fillRect(0, 0, this.c.width, this.c.height);
-            this.ctx.lineWidth = 15;
-            this.ctx.lineCap = 'round';
-            this.ctx.lineJoin = 'round';
-            this.ctx.strokeStyle = 'black';
-            app.cancelAutoCheck();
-        },
-        isEmpty: function () {
-            const d = this.ctx.getImageData(0, 0, this.c.width, this.c.height).data;
-            for (let i = 0; i < d.length; i += 4) if (d[i] < 255) return false;
-            return true;
-        }
+        window.addEventListener('resize', () => {
+          this.c.width = wrapper.clientWidth;
+          this.c.height = wrapper.clientWidth;
+          this.clear();
+        });
+      },
+      pos: function (e) {
+        const r = this.c.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const scaleX = this.c.width / r.width;
+        const scaleY = this.c.height / r.height;
+        return {
+          x: (clientX - r.left) * scaleX,
+          y: (clientY - r.top) * scaleY
+        };
+      },
+      clear: function () {
+        this.ctx.fillStyle = "white";
+        this.ctx.fillRect(0, 0, this.c.width, this.c.height);
+        this.ctx.lineWidth = 15;
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        this.ctx.strokeStyle = 'black';
+        app.cancelAutoCheck();
+      },
+      isEmpty: function () {
+        const d = this.ctx.getImageData(0, 0, this.c.width, this.c.height).data;
+        for (let i = 0; i < d.length; i += 4) if (d[i] < 255) return false;
+        return true;
+      }
     };
 
     document.addEventListener("DOMContentLoaded", () => app.init());
-</script>
+  </script>
 </body>
 </html>
