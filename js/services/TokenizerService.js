@@ -1,15 +1,19 @@
-/* global kuromoji, wanakana */
 export class TokenizerService {
     constructor() {
         this.tokenizer = null;
-        this.dicPath = "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/";
+        // 【修正】將 dicPath 指向專案內部的相對路徑
+        this.dicPath = "./kuromoji/dict/";
     }
 
     async init() {
         if (this.tokenizer) return;
         return new Promise((resolve, reject) => {
             kuromoji.builder({ dicPath: this.dicPath }).build((err, tokenizer) => {
-                if (err) reject(err);
+                if (err) {
+                    // 增加更詳細的錯誤日誌
+                    console.error("Kuromoji build failed. Check if dicPath is correct and files exist.", err);
+                    reject(err);
+                }
                 else {
                     this.tokenizer = tokenizer;
                     resolve();
