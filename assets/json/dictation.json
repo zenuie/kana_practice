@@ -1,0 +1,31 @@
+[
+  { "id": "q-v001-dict", "category": "n5-verb-forms", "text": "食べる", "answer": "たべる", "translation": "吃 (辭書形)", "hint": "二類動詞" },
+  { "id": "q-v001-masu", "category": "n5-verb-forms", "text": "食べます", "answer": "たべます", "translation": "吃 (ます形)", "hint": "禮貌形" },
+
+  { "id": "q-v002-dict", "category": "n5-verb-forms", "text": "飲む", "answer": "のむ", "translation": "喝 (辭書形)", "hint": "一類動詞 (mu結尾)" },
+  { "id": "q-v002-masu", "category": "n5-verb-forms", "text": "飲みます", "answer": "のみます", "translation": "喝 (ます形)", "hint": "mi + masu" },
+
+  { "id": "q-v003-dict", "category": "n5-verb-forms", "text": "見る", "answer": "みる", "translation": "看 (辭書形)", "hint": "二類動詞" },
+  { "id": "q-v003-masu", "category": "n5-verb-forms", "text": "見ます", "answer": "みます", "translation": "看 (ます形)", "hint": "去掉 ru + masu" },
+
+  { "id": "q-v004-dict", "category": "n5-verb-forms", "text": "行く", "answer": "いく", "translation": "去 (辭書形)", "hint": "一類動詞 (ku結尾)" },
+  { "id": "q-v004-masu", "category": "n5-verb-forms", "text": "行きます", "answer": "いきます", "translation": "去 (ます形)", "hint": "ki + masu" },
+
+  { "id": "q-v005-dict", "category": "n5-verb-forms", "text": "来る", "answer": "くる", "translation": "來 (辭書形)", "hint": "三類動詞 (不規則)" },
+  { "id": "q-v005-masu", "category": "n5-verb-forms", "text": "来ます", "answer": "きます", "translation": "來 (ます形)", "hint": "注意發音變化 (ki)" },
+
+  { "id": "q-v006-dict", "category": "n5-verb-forms", "text": "話す", "answer": "はなす", "translation": "說話 (辭書形)", "hint": "一類動詞 (su結尾)" },
+  { "id": "q-v006-masu", "category": "n5-verb-forms", "text": "話します", "answer": "はなします", "translation": "說話 (ます形)", "hint": "shi + masu" },
+
+  { "id": "q-v007-dict", "category": "n5-verb-forms", "text": "書く", "answer": "かく", "translation": "寫 (辭書形)", "hint": "一類動詞 (ku結尾)" },
+  { "id": "q-v007-masu", "category": "n5-verb-forms", "text": "書きます", "answer": "かきます", "translation": "寫 (ます形)", "hint": "ki + masu" },
+
+  { "id": "q-v008-dict", "category": "n5-verb-forms", "text": "待つ", "answer": "まつ", "translation": "等待 (辭書形)", "hint": "一類動詞 (tsu結尾)" },
+  { "id": "q-v008-masu", "category": "n5-verb-forms", "text": "待ちます", "answer": "まちます", "translation": "等待 (ます形)", "hint": "chi + masu" },
+
+  { "id": "q-v009-dict", "category": "n5-verb-forms", "text": "買う", "answer": "かう", "translation": "買 (辭書形)", "hint": "一類動詞 (u結尾)" },
+  { "id": "q-v009-masu", "category": "n5-verb-forms", "text": "買います", "answer": "かいます", "translation": "買 (ます形)", "hint": "i + masu" },
+
+  { "id": "q-v010-dict", "category": "n5-verb-forms", "text": "寝る", "answer": "ねる", "translation": "睡覺 (辭書形)", "hint": "二類動詞" },
+  { "id": "q-v010-masu", "category": "n5-verb-forms", "text": "寝ます", "answer": "ねます", "translation": "睡覺 (ます形)", "hint": "去掉 ru + masu" }
+]
